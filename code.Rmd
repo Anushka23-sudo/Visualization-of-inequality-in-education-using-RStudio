@@ -1,0 +1,587 @@
+---
+title: "Visualization of inequality"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(plotly)
+
+```
+
+# HDR
+
+## ##row {.tabset data-width="650"}
+
+### Human development group
+
+```{r}
+file_path <- "D:/DV (RStudio)/project_dataset.csv"
+
+df <- read.csv(file_path)
+df_filtered <- df %>% filter(!is.na(Human.Development.Groups))
+count_data <- df_filtered %>% count(Human.Development.Groups)
+
+ggplot(count_data, aes(x = reorder(Human.Development.Groups, -n), y = n, fill = Human.Development.Groups)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Low" = "coral", "Medium" = "yellow", "High" = "lightblue", "Very High" = "pink")) +
+  labs(title = "Distribution of Human Development Groups (Excluding NA)",
+       x = "Human Development Groups",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### Distribution of Human Development Groups
+
+```{r}
+data <- data.frame(
+  Human.Development.Groups = c("Low", "Medium", "High", "Very High"),
+  Count = c(49, 44, 4, 66)  # Replace with actual counts
+)
+
+# Create a pie chart
+ggplot(data, aes(x = "", y = Count, fill = Human.Development.Groups)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Distribution of Human Development Groups")
+
+```
+
+
+### HDR
+```{r}
+selectInput(inputId = "type", label = "Human development group", 
+            choices = c("Low", "Medium", "High","Very high"))
+
+
+renderPlot({
+  if (input$type == "Low") {
+    low_hdi_df <- df[df$Human.Development.Groups == "Low", ]
+    
+    # Create a bar plot
+    ggplot(data = low_hdi_df, aes(x = reorder(Country, HDI.Rank..2021.), y = HDI.Rank..2021.)) +
+      geom_bar(stat = "identity", fill = "lightblue") +
+      coord_flip() +
+      labs(title = "Countries with Low Human Development",
+           x = "HDI Rank (2021)",
+           y="Country")
+  } 
+  
+  
+  else  if (input$type == "Medium") {
+    low_hdi_df <- df[df$Human.Development.Groups == "Medium", ]
+    
+    # Create a bar plot
+    ggplot(data = low_hdi_df, aes(x = reorder(Country, HDI.Rank..2021.), y = HDI.Rank..2021.)) +
+      geom_bar(stat = "identity", fill = "pink") +
+      coord_flip() +
+      labs(title = "Countries with Medium Human Development",
+           x = "HDI Rank (2021)",
+           y="Country")
+  } 
+  
+  
+  
+  else if (input$type == "High") {
+    low_hdi_df <- df[df$Human.Development.Groups == "High", ]
+    
+    # Create a bar plot
+    ggplot(data = low_hdi_df, aes(x = reorder(Country, HDI.Rank..2021.), y = HDI.Rank..2021.)) +
+      geom_bar(stat = "identity", fill = "red") +
+      coord_flip() +
+      labs(title = "Countries with High Human Development",
+           x = "HDI Rank (2021)",
+           y="Country")
+  } 
+  else  if (input$type == "Very high") {
+    low_hdi_df <- df[df$Human.Development.Groups == "Very High", ]
+    
+    # Create a bar plot
+    ggplot(data = low_hdi_df, aes(x = reorder(Country, HDI.Rank..2021.), y = HDI.Rank..2021.)) +
+      geom_bar(stat = "identity", fill = "green") +
+      coord_flip() +
+      labs(title = "Countries with Very High Human Development",
+           x = "HDI Rank (2021)",
+           y="Country")
+  } 
+})
+
+```
+# Map {data-icon="fa-map"}
+
+## column {data-width="650"}
+
+### Map
+
+```{r}
+data <- df 
+
+plot_map <- plot_ly(
+  data,
+  z = ~HDI.Rank..2021., 
+  locations = ~Country,
+  type = "choropleth",
+  locationmode = "country names"
+) %>%
+  colorbar(title = "HDI Rank 2021")  
+
+plot_map %>%
+  layout(
+    geo = list(
+      showframe = FALSE,
+      showcoastlines = TRUE,
+      projection = list(type = "mercator")
+    ),
+    title = "Choropleth Map of HDI Rank 2021 by Country"
+  )
+```
+
+# Percentage {data-icon="fa-percentage"}
+
+### Colored Scatter Plot of Percentage of Inequality by Year.
+
+```{r}
+sorted_df <- df %>% arrange(HDI.Rank..2021.)
+sum_inequality <- colSums(sorted_df[, 6:17], na.rm = TRUE)
+total_inequality_count <- sum(sum_inequality, na.rm = TRUE)
+percentage_inequality <- (sum_inequality / total_inequality_count) * 100
+inequality_summary <- data.frame(
+  Year = names(sum_inequality),
+  Total_Count = sum_inequality,
+  Percentage = percentage_inequality
+)
+plot_ly(inequality_summary, x = ~Year, y = ~Percentage, color = ~Year, type = 'scatter', mode = 'markers') %>%
+  layout(title = "Percentage of Inequality by Year",
+         xaxis = list(title = "Year"),
+         yaxis = list(title = "Percentage"),
+         showlegend = FALSE)
+
+
+
+```
+
+# Covid
+
+```{r}
+data <- df 
+data$Change <- data$`Inequality.in.Education..2021.` - data$`Inequality.in.Education..2019.`
+
+scatter_plot <- plot_ly(data, x = ~`Inequality.in.Education..2019.`, y = ~Change, text = ~Country,
+                        type = 'scatter', mode = 'markers', marker = list(size = 10))
+
+layout(scatter_plot) %>%
+  layout(
+    title = "Change in Inequality pre and post Covid (2019 to 2021)",
+    xaxis = list(title = "Inequality in Education 2019"),
+    yaxis = list(title = "Change in Inequality (2019 to 2021)")
+  )
+
+slider <- list(
+  currentvalue = list(prefix = "Year: "),
+  steps = list(
+    list(
+      args = list("x", list(data$`Inequality.in.Education..2019`), "y", list(data$Change)),
+      method = "animate",
+      label = "2019"
+    ),
+    list(
+      args = list("x", list(data$`Inequality.in.Education..2021`), "y", list(data$Change)),
+      method = "animate",
+      label = "2021"
+    )
+  )
+)
+
+scatter_plot <- scatter_plot %>%
+  layout(updatemenu = list(type = "buttons", showactive = FALSE, buttons = list(slider)))
+
+scatter_plot
+
+```
+
+# Difference {data-icon="fa-clock"}
+
+## row {.tabset .tabset-fade}
+
+### (2020 vs. 2021)
+
+```{r}
+combined_data <- sorted_df %>%
+  filter(!is.na(Inequality.in.Education..2020.), !is.na(Inequality.in.Education..2021.))
+
+ggplot(combined_data, aes(x = "2020 vs. 2021", y = Inequality.in.Education..2021. - Inequality.in.Education..2020.)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Inequality in Education (2020 vs. 2021)") +
+  xlab("Comparison") +
+  ylab("Difference in Inequality (2021 - 2020)") +
+  theme_minimal()
+
+
+```
+
+### (2010 vs. 2021)
+
+```{r}
+combined_data <- sorted_df %>%
+  filter(!is.na(Inequality.in.Education..2010.), !is.na(Inequality.in.Education..2021.))
+
+combined_data$Difference <- combined_data$Inequality.in.Education..2021. - combined_data$Inequality.in.Education..2010.
+
+top_15 <- head(combined_data[order(combined_data$Difference, decreasing = TRUE), ], 15)
+bottom_15 <- head(combined_data[order(combined_data$Difference, decreasing = FALSE), ], 15)
+
+top_and_bottom_15 <- rbind(top_15, bottom_15)
+
+plot <- ggplot(top_and_bottom_15, aes(x = reorder(Country, -Difference), y = Difference, fill = ifelse(Difference >= 0, "Top", "Bottom"))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Top" = "skyblue", "Bottom" = "coral")) +
+  labs(title = "Differences in Inequality in Education (2010 vs. 2021) for Top and
+       Bottom 15 Countries") +
+  xlab("Country") +
+  ylab("Difference in Inequality") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot + guides(fill = guide_legend(title = NULL))
+
+
+
+```
+
+### (2015 vs. 2021)
+
+```{r}
+combined_data <- sorted_df %>%
+  filter(!is.na(Inequality.in.Education..2015.), !is.na(Inequality.in.Education..2021.))
+
+combined_data$Difference <- combined_data$Inequality.in.Education..2015. - combined_data$Inequality.in.Education..2021.
+
+top_15 <- head(combined_data[order(combined_data$Difference, decreasing = TRUE), ], 15)
+bottom_15 <- head(combined_data[order(combined_data$Difference, decreasing = FALSE), ], 15)
+
+top_and_bottom_15 <- rbind(top_15, bottom_15)
+
+plot <- ggplot(top_and_bottom_15, aes(x = reorder(Country, -Difference), y = Difference, fill = ifelse(Difference >= 0, "Top", "Bottom"))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Top" = "skyblue", "Bottom" = "coral")) +
+  labs(title = "Differences in Inequality in Education (2010 vs. 2015) for Top and
+       Bottom 15 Countries") +
+  xlab("Country") +
+  ylab("Difference in Inequality") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot + guides(fill = guide_legend(title = NULL))
+
+
+
+
+```
+
+### (2010 vs. 2015)
+
+```{r}
+combined_data <- sorted_df %>%
+  filter(!is.na(Inequality.in.Education..2010.), !is.na(Inequality.in.Education..2015.))
+
+combined_data$Difference <- combined_data$Inequality.in.Education..2010. - combined_data$Inequality.in.Education..2015.
+
+top_15 <- head(combined_data[order(combined_data$Difference, decreasing = TRUE), ], 15)
+bottom_15 <- head(combined_data[order(combined_data$Difference, decreasing = FALSE), ], 15)
+
+top_and_bottom_15 <- rbind(top_15, bottom_15)
+
+plot <- ggplot(top_and_bottom_15, aes(x = reorder(Country, -Difference), y = Difference, fill = ifelse(Difference >= 0, "Top", "Bottom"))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Top" = "skyblue", "Bottom" = "coral")) +
+  labs(title = "Differences in Inequality in Education (2010 vs. 2015) for Top and
+       Bottom 15 Countries") +
+  xlab("Country") +
+  ylab("Difference in Inequality") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot + guides(fill = guide_legend(title = NULL))
+
+```
+
+# 2021 {data-icon="fa-signal"}
+
+## Row {.tabset .tabset-fade}
+
+### Top 20 countries
+
+```{r}
+top_20_2021 <-  head(sorted_df[!is.na(sorted_df$Inequality.in.Education..2021.),], 20)
+
+ggplot(top_20_2021, aes(x = reorder(Country, Inequality.in.Education..2021.), y = Inequality.in.Education..2021.)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Inequality in Education by Country (2021)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2021)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Bottom 20 countries
+
+```{r}
+bottom_20_2021 <- tail(sorted_df[!is.na(sorted_df$Inequality.in.Education..2021.),], 20)
+
+ggplot(bottom_20_2021, aes(x = reorder(Country, Inequality.in.Education..2021.), y = Inequality.in.Education..2021.)) +
+  geom_bar(stat = "identity", fill = "salmon") +
+  labs(title = "Bottom 20 Countries with Lowest Inequality in Education (2021)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2021)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# 2020 {data-icon="fa-signal"}
+
+## Row {.tabset .tabset-fade}
+
+### Top 20 countries
+
+```{r}
+top_20_2020 <-  head(sorted_df[!is.na(sorted_df$Inequality.in.Education..2020.),], 20)
+
+ggplot(top_20_2020, aes(x = reorder(Country, Inequality.in.Education..2020.), y = Inequality.in.Education..2020.)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Inequality in Education by Country (2020)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2020)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Bottom 20 countries
+
+```{r}
+bottom_20_2020 <- tail(sorted_df[!is.na(sorted_df$Inequality.in.Education..2020.),], 20)
+
+ggplot(bottom_20_2020, aes(x = reorder(Country, Inequality.in.Education..2020.), y = Inequality.in.Education..2020.)) +
+  geom_bar(stat = "identity", fill = "salmon") +
+  labs(title = "Bottom 20 Countries with Lowest Inequality in Education (2020)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2020)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# 2010 {data-icon="fa-signal"}
+
+## Row {.tabset .tabset-fade}
+
+### Top 20 countries
+
+```{r}
+top_20_2010 <-  head(sorted_df[!is.na(sorted_df$Inequality.in.Education..2010.),], 20)
+
+ggplot(top_20_2010, aes(x = reorder(Country, Inequality.in.Education..2010.), y = Inequality.in.Education..2010.)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Inequality in Education by Country (2010)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2010)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Bottom 20 countries
+
+```{r}
+bottom_20_2010 <- tail(sorted_df[!is.na(sorted_df$Inequality.in.Education..2010.), ], 20)
+
+ggplot(bottom_20_2010, aes(x = reorder(Country, Inequality.in.Education..2010.), y = Inequality.in.Education..2010.)) +
+  geom_bar(stat = "identity", fill = "salmon") +
+  labs(title = "Bottom 20 Countries with Lowest Inequality in Education (2010)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2010)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# 2015 {data-icon="fa-signal"}
+
+------------------------------------------------------------------------
+
+## Column {.tabset data-width="400,"}
+
+### Top 20 countries
+
+```{r}
+bottom_20_2015 <- head(sorted_df[!is.na(sorted_df$Inequality.in.Education..2015.), ], 20)
+
+ggplot(bottom_20_2015, aes(x = reorder(Country, Inequality.in.Education..2015.), y = Inequality.in.Education..2015.)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Bottom 20 Countries with Lowest Inequality in Education (2015)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2015)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Bottom 20 countries
+
+```{r}
+bottom_20_2015 <- tail(sorted_df[!is.na(sorted_df$Inequality.in.Education..2015.), ], 20)
+
+ggplot(bottom_20_2015, aes(x = reorder(Country, Inequality.in.Education..2015.), y = Inequality.in.Education..2015.)) +
+  geom_bar(stat = "identity", fill = "salmon") +
+  labs(title = "Bottom 20 Countries with Lowest Inequality in Education (2015)") +
+  xlab("Country") +
+  ylab("Inequality in Education (2015)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+# 3D Scatterplot
+
+## \## Column {.tabset data-width="400,"}
+
+### Human development group
+
+```{r}
+inequality_data_3d <- df[, c("Country", "Inequality.in.Education..2010.", "Inequality.in.Education..2015.", "Inequality.in.Education..2021.", "HDI.Rank..2021.")]
+
+plot_3d <- plot_ly(inequality_data_3d, x = ~`Inequality.in.Education..2010.`, y = ~`Inequality.in.Education..2015.`, z = ~`Inequality.in.Education..2021.`, 
+                   text = ~Country, color = ~`HDI.Rank..2021.`,
+                   type = 'scatter3d', mode = 'markers')
+
+layout_3d <- list(
+  scene = list(xaxis = list(title = "Inequality 2010"),
+               yaxis = list(title = "Inequality 2015"),
+               zaxis = list(title = "Inequality 2021")),
+  margin = list(l = 0, r = 0, b = 0, t = 0)
+)
+
+plot_3d <- plot_3d %>% layout(layout_3d)
+plot_3d
+
+```
+
+### Scatter Plot of ISO3, Country, and UNDP Developing Region
+
+```{r}
+fig <- plot_ly(data = df, x = ~ISO3, y = ~Country, z = ~UNDP.Developing.Regions, 
+               type = 'scatter3d', mode = 'markers', color = ~UNDP.Developing.Regions)
+
+fig <- fig %>% layout(scene = list(aspectmode = "cube"),
+                     title = "3D Scatter Plot of ISO3, Country, and UNDP Developing Region")
+
+
+
+fig
+
+```
+
+
+
+# Inequality for year
+
+## column {data-width="650"}
+
+```{r}
+countries <- c(
+  "AFG", "AGO", "ALB", "AND", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT",
+  "AZE", "BDI", "BEL", "BEN", "BFA", "BGD", "BGR", "BHR", "BHS", "BIH",
+  "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BTN", "BWA", "CAF", "CAN",
+  "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "COL", "COM", "CPV",
+  "CRI", "CUB", "CYP", "CZE", "DEU", "DJI", "DMA", "DNK", "DOM", "DZA",
+  "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA", "FSM",
+  "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GRD",
+  "GTM", "GUY", "HKG", "HND", "HRV", "HTI", "HUN", "IDN", "IND", "IRL",
+  "IRN", "IRQ", "ISL", "ISR", "ITA", "JAM", "JOR", "JPN", "KAZ", "KEN",
+  "KGZ", "KHM", "KIR", "KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY",
+  "LCA", "LIE", "LKA", "LSO", "LTU", "LUX", "LVA", "MAR", "MCO", "MDA",
+  "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG",
+  "MOZ", "MRT", "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD",
+  "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN", "PER", "PHL", "PLW",
+  "PNG", "POL", "PRK", "PRT", "PRY", "PSE", "QAT", "ROU", "RUS", "RWA",
+  "SAU", "SDN", "SEN", "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", "SRB",
+  "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR", "TCD",
+  "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV",
+  "TZA", "UGA", "UKR", "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT",
+  "WSM", "YEM", "ZAF", "ZMB", "ZWE"
+)
+
+selectInput("country", "Choose a country:", choices = countries)
+ 
+ renderPlot({
+selected_country <- input$country
+selected_year <- input$year
+
+filtered_data <- df[df$ISO3 == selected_country, ]
+selected_group <- filtered_data$Human.Development.Groups
+bar_colors <- group_colors[selected_group]
+bar_data <- as.numeric(unlist(filtered_data[, 6:17]))
+
+years <- 2010:2021
+barplot(bar_data, names.arg = years, main = paste("Inequality in Education for", selected_country), col = bar_colors)
+
+
+  })
+    
+```
+### legend 
+```{r}
+   group_colors <- c("Very High" = "green", "High" = "lightblue", "Medium" = "orange", "Low" = "red")
+ renderPlot({
+    legend("top", legend = names(group_colors), fill = group_colors, title = "Development Group")
+ })
+```
+# Inequality
+
+```{r}
+df_long <- tidyr::gather(df, key = "Year", value = "Inequality", -ISO3, -Country, -Human.Development.Groups, -UNDP.Developing.Regions, -HDI.Rank..2021.)
+df_long$Year <- as.numeric(gsub("Inequality.in.Education..", "", df_long$Year))
+p <- ggplot(df_long, aes(x = as.factor(Year), y = Inequality, fill = as.factor(Year))) +
+  geom_boxplot() +
+  labs(title = "Inequality in Education Over Time",
+       y = "Inequality Value",
+       x = "Year") +
+  theme_minimal()
+p <- ggplotly(p)
+p
+
+```
+
+
+# Correlation Heatmap
+
+## Column {data-width="650"}
+
+### Heatmap {data-height="1000"}
+
+```{r}
+df_cleaned <- na.omit(df)
+inequality_indicators <- df_cleaned[, c("Inequality.in.Education..2010.",
+                                "Inequality.in.Education..2011.", "Inequality.in.Education..2012.",
+                                "Inequality.in.Education..2013.", "Inequality.in.Education..2014.",
+                                "Inequality.in.Education..2015.", "Inequality.in.Education..2016.",
+                                "Inequality.in.Education..2017.", "Inequality.in.Education..2018.",
+                                "Inequality.in.Education..2019.", "Inequality.in.Education..2020.",
+                                "Inequality.in.Education..2021.")]
+
+correlation_matrix <- cor(inequality_indicators)
+years <- gsub("Inequality.in.Education..(\\d+)\\.", "\\1", colnames(inequality_indicators))
+
+renderPlotly({
+    heatmap_plot <- plot_ly(z = correlation_matrix, type = "heatmap",
+                            colorscale = cbind(seq(0, 1, length = 100), c("white", "lightblue", "blue", "darkblue")),
+                            x = years,
+                            y = years,
+                            zauto = FALSE, zmin = -1, zmax = 1) %>%
+      layout(title = "Correlation Heatmap",
+             xaxis = list(title = "Indicators"),
+             yaxis = list(title = "Indicators"))
+    
+    heatmap_plot
+  })
+```
+
+### Interpretation
+
+-   This colorscale is used to represent the strength of correlations, with darker shades of blue indicating stronger positive correlations and darker shades of red indicating stronger negative correlations.
